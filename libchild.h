@@ -1,6 +1,6 @@
 /* Copyright (c) 2018, Bertold Van den Bergh
  * All rights reserved.
- * 
+ *
  * #Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
  *     * Redistributions of source code must retain the above copyright
@@ -11,7 +11,7 @@
  *     * Neither the name of the author nor the
  *       names of its contributors may be used to endorse or promote products
  *       derived from this software without specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
  * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
@@ -36,19 +36,18 @@ struct Child;
 typedef struct Child Child;
 
 enum childStates {
-	CHILD_STARTING = 0,
-	CHILD_STARTED = 1,
-	CHILD_TERMINATED = 2
+    CHILD_STARTING = 0,
+    CHILD_STARTED = 1,
+    CHILD_TERMINATED = 2
 };
 
 LIBCHILD_H_EXPORT_FUNCTION LibChild* libChildCreateWorker(char* slaveName);
 LIBCHILD_H_EXPORT_FUNCTION void libChildKill(Child* child, int signalId);
-LIBCHILD_H_EXPORT_FUNCTION Child* libChildExec
-                    (LibChild* lib, char* program,
-                    char** argv, char** env,
-					void(*stateChange)(Child* child, void* param, enum childStates state),
-					void(*childData)(Child* child, void* param, char* buffer, size_t len),
-					void* param);
+LIBCHILD_H_EXPORT_FUNCTION Child* libChildExec(LibChild* lib, char* program,
+                                               char** argv, char** env,
+                                               void(*stateChange)(Child* child, void* param, enum childStates state),
+                                               void(*childData)(Child* child, void* param, char* buffer, size_t len),
+                                               void* param);
 LIBCHILD_H_EXPORT_FUNCTION void libChildFreeHandle(Child* child);
 LIBCHILD_H_EXPORT_FUNCTION int libChildPoll(LibChild* lib);
 LIBCHILD_H_EXPORT_FUNCTION int libChildGetFd();

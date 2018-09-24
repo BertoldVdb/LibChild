@@ -1,6 +1,6 @@
 /* Copyright (c) 2018, Bertold Van den Bergh
  * All rights reserved.
- * 
+ *
  * #Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
  *     * Redistributions of source code must retain the above copyright
@@ -11,7 +11,7 @@
  *     * Neither the name of the author nor the
  *       names of its contributors may be used to endorse or promote products
  *       derived from this software without specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
  * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
@@ -32,55 +32,55 @@
 #include "libchild.h"
 
 struct slaveCommand {
-	int		command;
-	void*   masterEcho;
-	void*	paramChildProcess;
-	int		paramInteger;
+    int		command;
+    void*   masterEcho;
+    void*	paramChildProcess;
+    int		paramInteger;
 };
 
 struct slaveResponse {
-	void*   masterEcho;
-	int 	result;
-	void*	paramChildProcess;
-	int		paramInteger;
+    void*   masterEcho;
+    int 	result;
+    void*	paramChildProcess;
+    int		paramInteger;
 };
 
 struct LibChild {
-	pid_t intermediatePid;
+    pid_t intermediatePid;
     int workerDied;
     int unusedHandle;
-	int sockets[2];
+    int sockets[2];
 };
 
 typedef struct LibChild LibChild;
 
-struct Child{
-	void(*stateChange)(struct Child* child, void* param, enum childStates state);
-	void(*childData)(struct Child* child, void* param, char* buffer, size_t len);
-	void* param;
-	void* slaveId;
-	enum childStates state;
-	pid_t pid;
-	LibChild* lib;
-	unsigned int unusedHandle;
+struct Child {
+    void(*stateChange)(struct Child* child, void* param, enum childStates state);
+    void(*childData)(struct Child* child, void* param, char* buffer, size_t len);
+    void* param;
+    void* slaveId;
+    enum childStates state;
+    pid_t pid;
+    LibChild* lib;
+    unsigned int unusedHandle;
 };
 
 typedef struct Child Child;
 
 enum slaveCommands {
-	SLAVE_COMMAND_EXEC = 1,
-	SLAVE_COMMAND_CLOSE_HANDLE = 2,
-	SLAVE_COMMAND_KILL = 3,
-	SLAVE_COMMAND_EXEC_PIPE = 4,
-	SLAVE_COMMAND_QUIT = 5,
+    SLAVE_COMMAND_EXEC = 1,
+    SLAVE_COMMAND_CLOSE_HANDLE = 2,
+    SLAVE_COMMAND_KILL = 3,
+    SLAVE_COMMAND_EXEC_PIPE = 4,
+    SLAVE_COMMAND_QUIT = 5,
 };
 
 enum slaveResults {
-	SLAVE_RESULT_NULL = 0,
-	SLAVE_RESULT_CHILD_CREATED = 1,
-	SLAVE_RESULT_CHILD_DIED = 2,
-	SLAVE_RESULT_CHILD_STDOUT_DATA = 3,
-	SLAVE_RESULT_CHILD_STDERR_DATA = 4
+    SLAVE_RESULT_NULL = 0,
+    SLAVE_RESULT_CHILD_CREATED = 1,
+    SLAVE_RESULT_CHILD_DIED = 2,
+    SLAVE_RESULT_CHILD_STDOUT_DATA = 3,
+    SLAVE_RESULT_CHILD_STDERR_DATA = 4
 };
 
 void libChildSlaveProcess(int socket);
