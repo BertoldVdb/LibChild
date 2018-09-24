@@ -168,7 +168,6 @@ Child* libChildExec(LibChild* lib, char* program, char** argv, char** env,
     child->childData = childData;
     child->lib = lib;
 
-    printf("Creating with %p\n", cmd.masterEcho);
     if(libChildWriteFull(lib->sockets[0], (char*)&cmd, sizeof(cmd))) goto fail;
     if(libChildWriteVariable(lib->sockets[0], program, strlen(program))) goto fail;
     if(libChildWritePack(lib->sockets[0], argv)) goto fail;
