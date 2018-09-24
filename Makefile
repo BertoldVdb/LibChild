@@ -33,7 +33,7 @@ LDFLAGS=-shared -fvisibility=hidden
 
 EXECUTABLE=libchild.so
 INCLUDES_SRC=def.h libchild.h
-SOURCES_SRC=libchild.c main.c slave.c socket.c
+SOURCES_SRC=libchild.c slave.c socket.c
 
 
 OBJECTS_OBJ=$(SOURCES_SRC:.c=.o)
