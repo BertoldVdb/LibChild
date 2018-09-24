@@ -47,22 +47,22 @@ struct childProcess {
     struct childProcess* next;
     struct childProcess* prev;
 
-    int		running;
-    pid_t	pid;
+    int    running;
+    pid_t  pid;
 
-    void*	echo;
+    void*  echo;
 
-    int		pipe_out;
-    int 	pipe_err;
-    int 	silent;
+    int    pipe_out;
+    int    pipe_err;
+    int    silent;
 };
 
 typedef struct {
-    pid_t intermediatePid;
-    pid_t grpId;
-    int chldFd;
-    int socket;
-    int die;
+    pid_t  intermediatePid;
+    pid_t  grpId;
+    int    chldFd;
+    int    socket;
+    int    die;
     struct childProcess* firstProcess;
 } SlaveGlobal;
 
