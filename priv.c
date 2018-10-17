@@ -24,7 +24,6 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <stdio.h>
 #include <sys/types.h>
 #include <pwd.h>
 #include <errno.h>
@@ -48,7 +47,6 @@ int changeUser(char* username)
         buf = malloc(buflen);
         if(!buf) return -1;
         retVal = getpwnam_r(username, &pwd, buf, buflen, &result);
-        printf ("%d %u %p\n", retVal, buflen, result);
         if(retVal == ERANGE) {
             free(buf);
             buflen *= 2;
