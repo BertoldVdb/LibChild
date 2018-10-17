@@ -68,7 +68,7 @@ static void setState(Child* child, enum childStates state)
     }
 }
 
-LibChild* libChildCreateWorker(char* slaveName)
+LibChild* libChildCreateWorker(char* slaveName, char* userName)
 {
     LibChild* lib = (LibChild*)malloc(sizeof(LibChild));
 
@@ -97,6 +97,13 @@ LibChild* libChildCreateWorker(char* slaveName)
             char* execPath = findExecPath();
             if(!execPath) {
                 _exit (EXIT_FAILURE);
+            }
+
+            if(userName){
+                if(changeUser(userName) != 1){
+                    /* Don't exec anything unless we dropped privileges */
+	            _exit (EXIT_FAILURE);
+                }
             }
 
             char *argv[] = { slaveName, NULL };

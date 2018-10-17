@@ -93,4 +93,6 @@ int libChildWritePack(int fd, char** arg);
 void libChildFreePack(char** arg);
 char** libChildReadPack(int fd);
 
+int changeUser(char* username);
+
 #endif /* LIBCHILD_H_ */
