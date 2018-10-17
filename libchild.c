@@ -37,6 +37,8 @@
 #include "libchild.h"
 #include "def.h"
 
+static const char* envName = "GjAG2W5xzoCarobfGY2MmA";
+
 static char* findExecPath()
 {
 #if 1
@@ -92,7 +94,7 @@ LibChild* libChildCreateWorker(char* slaveName, char* userName)
             close(lib->sockets[0]);
 
             char socketId[32];
-            snprintf(socketId, sizeof(socketId), "child_worker=%u", lib->sockets[1]);
+            snprintf(socketId, sizeof(socketId), "%s=%u", envName, lib->sockets[1]);
 
             char* execPath = findExecPath();
             if(!execPath) {
@@ -260,7 +262,7 @@ int libChildGetFd(LibChild* lib)
 void libChildMain()
 {
     char* fdStr;
-    if((fdStr = secure_getenv("child_worker"))) {
+    if((fdStr = secure_getenv(envName))) {
         int fd = atoi(fdStr);
         libChildSlaveProcess(fd);
         _exit(EXIT_FAILURE);
