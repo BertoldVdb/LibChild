@@ -30,6 +30,7 @@
 #include <string.h>
 #include <memory.h>
 #include <stdlib.h>
+#include <errno.h>
 
 #ifdef __linux__
 #define SEND_FLAGS MSG_NOSIGNAL
@@ -42,6 +43,9 @@ int libChildReadFull(int fd, char* buffer, size_t len)
     while(len) {
         ssize_t bytesRead = read(fd, buffer, len);
         if(bytesRead <= 0) {
+            if(errno == EINTR){
+                continue;
+            }
             return -1;
         }
         len -= bytesRead;
@@ -56,6 +60,9 @@ int libChildWriteFull(int fd, char* buffer, size_t len)
     while(len) {
         ssize_t bytesWritten = send(fd, buffer, len, SEND_FLAGS);
         if(bytesWritten <= 0) {
+            if(errno == EINTR){
+                continue;
+            }
             return -1;
         }
         len -= bytesWritten;
