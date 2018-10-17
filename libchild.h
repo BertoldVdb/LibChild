@@ -42,17 +42,18 @@ enum childStates {
 };
 
 LIBCHILD_H_EXPORT_FUNCTION LibChild* libChildCreateWorker(char* slaveName);
-LIBCHILD_H_EXPORT_FUNCTION void libChildKill(Child* child, int signalId);
-LIBCHILD_H_EXPORT_FUNCTION Child* libChildExec(LibChild* lib, char* program,
-                                               char** argv, char** env,
-                                               void(*stateChange)(Child* child, void* param, enum childStates state),
-                                               void(*childData)(Child* child, void* param, char* buffer, size_t len),
-                                               void* param);
-LIBCHILD_H_EXPORT_FUNCTION void libChildFreeHandle(Child* child);
-LIBCHILD_H_EXPORT_FUNCTION int libChildPoll(LibChild* lib);
-LIBCHILD_H_EXPORT_FUNCTION int libChildGetFd();
-LIBCHILD_H_EXPORT_FUNCTION void libChildMain();
-LIBCHILD_H_EXPORT_FUNCTION void libChildTerminateWorker(LibChild* lib);
+LIBCHILD_H_EXPORT_FUNCTION void      libChildKill(Child* child, int signalId);
+LIBCHILD_H_EXPORT_FUNCTION Child*    libChildExec(LibChild* lib, char* program,
+                                                  char** argv, char** env,
+                                                  void(*stateChange)(Child* child, void* param, enum childStates state),
+                                                  void(*childData)(Child* child, void* param, char* buffer, size_t len),
+                                                  void* param);
+LIBCHILD_H_EXPORT_FUNCTION int       libChildExitStatus(Child* child);
+LIBCHILD_H_EXPORT_FUNCTION void      libChildFreeHandle(Child* child);
+LIBCHILD_H_EXPORT_FUNCTION int       libChildPoll(LibChild* lib);
+LIBCHILD_H_EXPORT_FUNCTION int       libChildGetFd();
+LIBCHILD_H_EXPORT_FUNCTION void      libChildMain();
+LIBCHILD_H_EXPORT_FUNCTION void      libChildTerminateWorker(LibChild* lib);
 
 
 #endif /* SRC_LIBCHILD_H_ */

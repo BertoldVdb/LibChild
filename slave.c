@@ -55,6 +55,8 @@ struct childProcess {
     int    pipe_out;
     int    pipe_err;
     int    silent;
+
+    int    status;
 };
 
 typedef struct {
@@ -79,11 +81,13 @@ static void slaveExit(SlaveGlobal* lib)
 
         if(it->running) {
             kill(it->pid, SIGKILL);
+            waitpid(it->pid, &it->status, 0);
 
             /* Try to write something to the master, it may still be listening... */
             struct slaveResponse response;
             response.result = SLAVE_RESULT_CHILD_DIED;
             response.paramChildProcess = it;
+            response.paramInteger = it->status;
             response.masterEcho = it->echo;
 
             libChildWriteFull(lib->socket, (char*)&response, sizeof(response));
@@ -131,6 +135,7 @@ static void notifyDead(SlaveGlobal* lib, struct childProcess* it)
     response.result = SLAVE_RESULT_CHILD_DIED;
     response.paramChildProcess = it;
     response.masterEcho = it->echo;
+    response.paramInteger = it->status;
 
     if(libChildWriteFull(lib->socket, (char*)&response, sizeof(response))) {
         slaveExit(lib);
@@ -167,7 +172,7 @@ void libChildSlaveProcess(int socket)
         slaveExit(&lib);
     }
 
-    /* Create an eventID to synchronize the SIGCHLD signal */
+    /* Create an eventFD to synchronize the SIGCHLD signal */
     lib.chldFd = eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK);
     if(lib.chldFd < 0) {
         slaveExit(&lib);
@@ -284,13 +289,14 @@ void libChildSlaveProcess(int socket)
                 slaveExit(&lib);
             }
 
-            for(uint64_t i=0; i<numDead; i++) {
-                /* Wait for children */
-                int status;
-                pid_t pid = waitpid(-lib.grpId, &status, 0);
+            int status;
+            pid_t pid;
 
+            /* Wait for children */
+            while((pid = waitpid(-lib.grpId, &status, WNOHANG)) > 0) {
                 FOREACH_CHILD(&lib, it) {
                     if(it->pid == pid && it->running) {
+			it->status = status;
                         it->running = 0;
 
                         notifyDead(&lib, it);

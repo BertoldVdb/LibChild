@@ -32,24 +32,24 @@
 #include "libchild.h"
 
 struct slaveCommand {
-    int		command;
+    int     command;
     void*   masterEcho;
-    void*	paramChildProcess;
-    int		paramInteger;
+    void*   paramChildProcess;
+    int     paramInteger;
 };
 
 struct slaveResponse {
     void*   masterEcho;
-    int 	result;
-    void*	paramChildProcess;
-    int		paramInteger;
+    int     result;
+    void*   paramChildProcess;
+    int     paramInteger;
 };
 
 struct LibChild {
-    pid_t intermediatePid;
-    int workerDied;
-    int unusedHandle;
-    int sockets[2];
+    pid_t   intermediatePid;
+    int     workerDied;
+    int     unusedHandle;
+    int     sockets[2];
 };
 
 typedef struct LibChild LibChild;
@@ -63,6 +63,7 @@ struct Child {
     pid_t pid;
     LibChild* lib;
     unsigned int unusedHandle;
+    int exitStatus;
 };
 
 typedef struct Child Child;

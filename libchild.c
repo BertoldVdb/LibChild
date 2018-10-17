@@ -102,7 +102,8 @@ LibChild* libChildCreateWorker(char* slaveName)
             char *argv[] = { slaveName, NULL };
             char *env[] = { socketId, NULL };
             execve(execPath, argv, env);
-            _exit (EXIT_FAILURE);
+
+	    _exit (EXIT_FAILURE);
 
         } else if(lib->intermediatePid < 0) {
             goto fail;
@@ -181,6 +182,11 @@ fail:
     return NULL;
 }
 
+int libChildExitStatus(Child* child)
+{
+    return child->exitStatus;
+}
+
 void libChildFreeHandle(Child* child)
 {
     if(child->state == CHILD_TERMINATED) {
@@ -207,6 +213,7 @@ int libChildPoll(LibChild* lib)
     } else if(resp.result == SLAVE_RESULT_CHILD_DIED) {
         void* slaveId = child->slaveId;
         child->slaveId = NULL;
+	child->exitStatus = resp.paramInteger;
 
         setState(child, CHILD_TERMINATED);
 
