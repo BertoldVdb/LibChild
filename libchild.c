@@ -282,8 +282,7 @@ int libChildGetFd(LibChild* lib)
     return lib->sockets[0];
 }
 
-#ifdef __LINUX__
-#error test
+#ifdef __linux__
 #define GETENC secure_getenv
 #else
 #define GETENV getenv
