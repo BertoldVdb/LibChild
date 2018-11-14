@@ -41,6 +41,8 @@
 #include <mach-o/dyld.h>
 #endif
 
+extern char **environ;
+
 static const char* envName = "GjAG2W5xzoCarobfGY2MmA";
 
 static char* findExecPath()
