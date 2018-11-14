@@ -121,7 +121,16 @@ LibChild* libChildCreateWorker(char* slaveName, char* userName)
             }
 
             char *argv[] = { slaveName, NULL };
-            char *env[] = { socketId, NULL };
+           
+            unsigned int i; 
+            for(i=0; environ[i]; i++);
+            char *env[i+2];
+            env[i] = socketId;
+            env[i+1] = NULL;
+            for(i=0; environ[i]; i++){
+                env[i] = environ[i];
+            }
+
             execve(execPath, argv, env);
 
 	    _exit (EXIT_FAILURE);
