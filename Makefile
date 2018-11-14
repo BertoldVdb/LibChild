@@ -42,7 +42,7 @@ all: $(EXECUTABLE)
 
 $(EXECUTABLE): $(OBJECTS_OBJ)
 	$(CC) $(LDFLAGS) $(OBJECTS_OBJ) -o $@
-	$(STRIP) $@
+	$(STRIP) -x $@
 	
 
 obj/%.o: src/%.c $(INCLUDES_SRC)
