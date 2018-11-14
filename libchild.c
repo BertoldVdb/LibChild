@@ -45,7 +45,7 @@ static const char* envName = "GjAG2W5xzoCarobfGY2MmA";
 
 static char* findExecPath()
 {
-#ifdef __LINUX__
+#ifdef __linux__
     return strdup("/proc/self/exe");
 #else
 #ifdef  __APPLE__
