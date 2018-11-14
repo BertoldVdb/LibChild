@@ -31,7 +31,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/eventfd.h>
+#include <signal.h>
 #include <sys/ioctl.h>
 #include <sys/poll.h>
 #include <sys/resource.h>
@@ -42,6 +42,9 @@
 #include <unistd.h>
 #include "def.h"
 
+#ifdef __LINUX__
+#include <sys/eventfd.h>
+#endif
 
 struct childProcess {
     struct childProcess* next;
@@ -62,7 +65,11 @@ struct childProcess {
 typedef struct {
     pid_t  intermediatePid;
     pid_t  grpId;
-    int    chldFd;
+#ifdef __LINUX__
+    int    chldFd[1];
+#else
+    int    chldFd[2];
+#endif
     int    socket;
     int    die;
     struct childProcess* firstProcess;
@@ -148,13 +155,36 @@ SlaveGlobal lib;
 
 static void signalHandler(int sig, siginfo_t *siginfo, void *context)
 {
-    uint64_t value = 1;
     if(sig == SIGTERM) {
         lib.die = 1;
     }
 
-    int retVal = write(lib.chldFd, &value, sizeof(value));
+#ifdef __LINUX__
+    uint64_t value = 1;
+    int retVal = write(lib.chldFd[0], &value, sizeof(value));
+#else
+    uint8_t value = 1;
+    int retVal = write(lib.chldFd[1], &value, sizeof(value));
+#endif
+
     (void)retVal;
+}
+
+static void pipeClosed(int fd){
+    FOREACH_CHILD(&lib, it) {
+        if(it->pipe_out == fd) {
+            close(it->pipe_out);
+            it->pipe_out = -1;
+            notifyDead(&lib, it);  
+            break;
+        }
+        if(it->pipe_err == fd) {
+            close(it->pipe_err);
+            it->pipe_err = -1;
+            notifyDead(&lib, it);
+            break;
+        }
+    }
 }
 
 void libChildSlaveProcess(int socket)
@@ -173,10 +203,16 @@ void libChildSlaveProcess(int socket)
     }
 
     /* Create an eventFD to synchronize the SIGCHLD signal */
-    lib.chldFd = eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK);
-    if(lib.chldFd < 0) {
+#ifdef __LINUX__
+    lib.chldFd[0] = eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK);
+    if(lib.chldFd[0] < 0) {
         slaveExit(&lib);
     }
+#else
+    if(pipe(lib.chldFd) < 0) slaveExit(&lib);
+    if(fcntl(lib.chldFd[0], F_SETFD, FD_CLOEXEC) < 0) slaveExit(&lib); 
+    if(fcntl(lib.chldFd[1], F_SETFD, FD_CLOEXEC) < 0) slaveExit(&lib); 
+#endif
 
     /* We have forked already once so we can safely put signal handlers */
     struct sigaction action;
@@ -197,7 +233,7 @@ void libChildSlaveProcess(int socket)
         struct pollfd fds[2 + openPipes];
         /* This FD signals when a child process died */
         const unsigned int SIGCHLD_FD = 0;
-        fds[SIGCHLD_FD].fd = lib.chldFd;
+        fds[SIGCHLD_FD].fd = lib.chldFd[0];
         fds[SIGCHLD_FD].events = POLLIN;
 
         /* This FD is used to receive commands from the parent */
@@ -239,7 +275,6 @@ void libChildSlaveProcess(int socket)
                 if(fds[i].revents & POLLIN) {
                     char buffer[512];
                     ssize_t readLen = read(fds[i].fd, buffer, sizeof(buffer));
-
                     if(readLen > 0) {
                         FOREACH_CHILD(&lib, it) {
                             if(it->pipe_out == fds[i].fd || it->pipe_err == fds[i].fd) {
@@ -263,29 +298,19 @@ void libChildSlaveProcess(int socket)
                                 break;
                             }
                         }
+                    }else{
+                    	pipeClosed(fds[i].fd);
                     }
-                } else if(fds[i].revents & (POLLHUP | POLLERR)) {
-                    FOREACH_CHILD(&lib, it) {
-                        if(it->pipe_out == fds[i].fd) {
-                            close(it->pipe_out);
-                            it->pipe_out = -1;
-                            notifyDead(&lib, it);
-                            break;
-                        }
-                        if(it->pipe_err == fds[i].fd) {
-                            close(it->pipe_err);
-                            it->pipe_err = -1;
-                            notifyDead(&lib, it);
-                            break;
-                        }
-                    }
+                }
+                if(fds[i].revents & (POLLHUP | POLLERR)) {
+                    pipeClosed(fds[i].fd);
                 }
             }
         }
 
         if(fds[SIGCHLD_FD].revents & POLLIN) {
-            uint64_t numDead;
-            if(read(lib.chldFd, &numDead, sizeof(numDead)) != sizeof(numDead)) {
+            uint64_t tmp;
+            if(read(lib.chldFd[0], &tmp, sizeof(tmp)) <= 0) {
                 slaveExit(&lib);
             }
 

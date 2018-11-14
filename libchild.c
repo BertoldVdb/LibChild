@@ -37,21 +37,33 @@
 #include "libchild.h"
 #include "def.h"
 
+#ifdef __APPLE__
+#include <mach-o/dyld.h>
+#endif
+
 static const char* envName = "GjAG2W5xzoCarobfGY2MmA";
 
 static char* findExecPath()
 {
-#if 1
+#ifdef __LINUX__
     return strdup("/proc/self/exe");
 #else
-    ssize_t len = readlink("/proc/self/exe", buf, bufLen);
+#ifdef  __APPLE__
+    unsigned int bufSize = 0;
+    /* Find required length */
+    _NSGetExecutablePath(NULL, &bufSize);
 
-    if(len == bufLen) {
-        return 0;
+    /* Get actual value */
+    char* buf = malloc(bufSize);
+    if(_NSGetExecutablePath(buf, &bufSize)){
+        free(buf); 
+        return NULL;
     }
 
-    buf[len] = 0;
-    return len;
+    return buf;
+#else
+    #error "Not supported";
+#endif
 #endif
 }
 
@@ -259,10 +271,17 @@ int libChildGetFd(LibChild* lib)
     return lib->sockets[0];
 }
 
+#ifdef __LINUX__
+#error test
+#define GETENC secure_getenv
+#else
+#define GETENV getenv
+#endif
+
 void libChildMain()
 {
     char* fdStr;
-    if((fdStr = secure_getenv(envName))) {
+    if((fdStr = GETENV(envName))) {
         int fd = atoi(fdStr);
         libChildSlaveProcess(fd);
         _exit(EXIT_FAILURE);
