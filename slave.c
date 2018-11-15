@@ -170,12 +170,13 @@ static void signalHandler(int sig, siginfo_t *siginfo, void *context)
     (void)retVal;
 }
 
-static void pipeClosed(int fd){
+static void pipeClosed(int fd)
+{
     FOREACH_CHILD(&lib, it) {
         if(it->pipe_out == fd) {
             close(it->pipe_out);
             it->pipe_out = -1;
-            notifyDead(&lib, it);  
+            notifyDead(&lib, it);
             break;
         }
         if(it->pipe_err == fd) {
@@ -185,6 +186,11 @@ static void pipeClosed(int fd){
             break;
         }
     }
+}
+
+static void setCloExec(int fd)
+{
+    if(fcntl(fd, F_SETFD, FD_CLOEXEC) < 0) slaveExit(&lib);
 }
 
 void libChildSlaveProcess(int socket)
@@ -210,8 +216,8 @@ void libChildSlaveProcess(int socket)
     }
 #else
     if(pipe(lib.chldFd) < 0) slaveExit(&lib);
-    if(fcntl(lib.chldFd[0], F_SETFD, FD_CLOEXEC) < 0) slaveExit(&lib); 
-    if(fcntl(lib.chldFd[1], F_SETFD, FD_CLOEXEC) < 0) slaveExit(&lib); 
+    setCloExec(lib.chldFd[0]);
+    setCloExec(lib.chldFd[1]);
 #endif
 
     /* We have forked already once so we can safely put signal handlers */
@@ -298,8 +304,8 @@ void libChildSlaveProcess(int socket)
                                 break;
                             }
                         }
-                    }else{
-                    	pipeClosed(fds[i].fd);
+                    } else {
+                        pipeClosed(fds[i].fd);
                     }
                 }
                 if(fds[i].revents & (POLLHUP | POLLERR)) {
@@ -321,7 +327,7 @@ void libChildSlaveProcess(int socket)
             while((pid = waitpid(-lib.grpId, &status, WNOHANG)) > 0) {
                 FOREACH_CHILD(&lib, it) {
                     if(it->pid == pid && it->running) {
-			it->status = status;
+                        it->status = status;
                         it->running = 0;
 
                         notifyDead(&lib, it);
@@ -372,10 +378,6 @@ void libChildSlaveProcess(int socket)
                         close(pipe_stdout[0]);
                         close(pipe_stderr[0]);
                     }
-                    FOREACH_CHILD(&lib, it) {
-                        if(it->pipe_out >= 0) close(it->pipe_out);
-                        if(it->pipe_err >= 0) close(it->pipe_err);
-                    }
 
                     /* Detach stdio */
                     detach(silent);
@@ -413,6 +415,8 @@ void libChildSlaveProcess(int socket)
                         child->pipe_out = -1;
                         child->pipe_err = -1;
                     } else {
+                        setCloExec(pipe_stdout[0]);
+                        setCloExec(pipe_stderr[0]);
                         child->pipe_out = pipe_stdout[0];
                         child->pipe_err = pipe_stderr[0];
                     }

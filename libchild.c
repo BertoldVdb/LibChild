@@ -57,14 +57,14 @@ static char* findExecPath()
 
     /* Get actual value */
     char* buf = malloc(bufSize);
-    if(_NSGetExecutablePath(buf, &bufSize)){
-        free(buf); 
+    if(_NSGetExecutablePath(buf, &bufSize)) {
+        free(buf);
         return NULL;
     }
 
     return buf;
 #else
-    #error "Not supported";
+#error "Not supported";
 #endif
 #endif
 }
@@ -115,27 +115,27 @@ LibChild* libChildCreateWorker(char* slaveName, char* userName)
                 _exit (EXIT_FAILURE);
             }
 
-            if(userName){
-                if(changeUser(userName) != 1){
+            if(userName) {
+                if(changeUser(userName) != 1) {
                     /* Don't exec anything unless we dropped privileges */
-	            _exit (EXIT_FAILURE);
+                    _exit (EXIT_FAILURE);
                 }
             }
 
             char *argv[] = { slaveName, NULL };
-           
-            unsigned int i; 
+
+            unsigned int i;
             for(i=0; environ[i]; i++);
             char *env[i+2];
             env[i] = socketId;
             env[i+1] = NULL;
-            for(i=0; environ[i]; i++){
+            for(i=0; environ[i]; i++) {
                 env[i] = environ[i];
             }
 
             execve(execPath, argv, env);
 
-	    _exit (EXIT_FAILURE);
+            _exit (EXIT_FAILURE);
 
         } else if(lib->intermediatePid < 0) {
             goto fail;
@@ -245,7 +245,7 @@ int libChildPoll(LibChild* lib)
     } else if(resp.result == SLAVE_RESULT_CHILD_DIED) {
         void* slaveId = child->slaveId;
         child->slaveId = NULL;
-	child->exitStatus = resp.paramInteger;
+        child->exitStatus = resp.paramInteger;
 
         setState(child, CHILD_TERMINATED);
 
@@ -283,7 +283,7 @@ int libChildGetFd(LibChild* lib)
 }
 
 #ifdef __linux__
-#define GETENC secure_getenv
+#define GETENV secure_getenv
 #else
 #define GETENV getenv
 #endif

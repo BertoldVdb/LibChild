@@ -56,7 +56,7 @@ int changeUser(char* username)
         }
     }
 
-    if(!result){
+    if(!result) {
         free(buf);
         return 0;
     }
