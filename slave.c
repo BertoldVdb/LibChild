@@ -42,7 +42,7 @@
 #include <unistd.h>
 #include "def.h"
 
-#ifdef __LINUX__
+#ifdef __linux__
 #include <sys/eventfd.h>
 #endif
 
@@ -65,7 +65,7 @@ struct childProcess {
 typedef struct {
     pid_t  intermediatePid;
     pid_t  grpId;
-#ifdef __LINUX__
+#ifdef __linux__
     int    chldFd[1];
 #else
     int    chldFd[2];
@@ -159,7 +159,7 @@ static void signalHandler(int sig, siginfo_t *siginfo, void *context)
         lib.die = 1;
     }
 
-#ifdef __LINUX__
+#ifdef __linux__
     uint64_t value = 1;
     int retVal = write(lib.chldFd[0], &value, sizeof(value));
 #else
@@ -209,7 +209,7 @@ void libChildSlaveProcess(int socket)
     }
 
     /* Create an eventFD to synchronize the SIGCHLD signal */
-#ifdef __LINUX__
+#ifdef __linux__
     lib.chldFd[0] = eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK);
     if(lib.chldFd[0] < 0) {
         slaveExit(&lib);
