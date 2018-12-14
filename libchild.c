@@ -176,7 +176,7 @@ void libChildKill(Child* child, int signalId)
     }
 }
 
-Child* libChildExec(LibChild* lib, char* program, char** argv, char** env,
+Child* libChildExec(LibChild* lib, char* program, char* username, char** argv, char** env,
                     void(*stateChange)(Child* child, void* param, enum childStates state),
                     void(*childData)(Child* child, void* param, char* buffer, size_t len),
                     void* param)
@@ -201,8 +201,13 @@ Child* libChildExec(LibChild* lib, char* program, char** argv, char** env,
     child->childData = childData;
     child->lib = lib;
 
+    if(!username) {
+        username = "";
+    }
+
     if(libChildWriteFull(lib->sockets[0], (char*)&cmd, sizeof(cmd))) goto fail;
     if(libChildWriteVariable(lib->sockets[0], program, strlen(program))) goto fail;
+    if(libChildWriteVariable(lib->sockets[0], username, strlen(username))) goto fail;
     if(libChildWritePack(lib->sockets[0], argv)) goto fail;
     if(libChildWritePack(lib->sockets[0], env)) goto fail;
 

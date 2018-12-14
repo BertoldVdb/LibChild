@@ -43,7 +43,7 @@ enum childStates {
 
 LIBCHILD_H_EXPORT_FUNCTION LibChild* libChildCreateWorker(char* slaveName, char* userName);
 LIBCHILD_H_EXPORT_FUNCTION void      libChildKill(Child* child, int signalId);
-LIBCHILD_H_EXPORT_FUNCTION Child*    libChildExec(LibChild* lib, char* program,
+LIBCHILD_H_EXPORT_FUNCTION Child*    libChildExec(LibChild* lib, char* program, char* username,
                                                   char** argv, char** env,
                                                   void(*stateChange)(Child* child, void* param, enum childStates state),
                                                   void(*childData)(Child* child, void* param, char* buffer, size_t len),

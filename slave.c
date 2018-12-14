@@ -353,6 +353,8 @@ void libChildSlaveProcess(int socket)
                 /* Read parameters */
                 char* program = libChildReadVariable(fds[CMD_FD].fd, NULL);
                 if(!program) slaveExit(&lib);
+                char* userName = libChildReadVariable(fds[CMD_FD].fd, NULL);
+                if(!userName) slaveExit(&lib);
                 char** argv = libChildReadPack(fds[CMD_FD].fd);
                 if(!argv) slaveExit(&lib);
                 char** env = libChildReadPack(fds[CMD_FD].fd);
@@ -370,6 +372,13 @@ void libChildSlaveProcess(int socket)
                 pid_t pid = fork();
 
                 if(!pid) {
+                    if(strlen(userName)) {
+                        if(changeUser(userName) != 1) {
+                            /* Don't exec anything unless we dropped privileges */
+                            _exit (EXIT_FAILURE);
+                        }
+                    }
+
                     /* Close the command socket */
                     close(lib.socket);
 
