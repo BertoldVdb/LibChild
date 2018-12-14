@@ -293,7 +293,7 @@ int libChildGetFd(LibChild* lib)
 #define GETENV getenv
 #endif
 
-void libChildMain()
+__attribute__((constructor (101))) void libChildMain()
 {
     char* fdStr;
     if((fdStr = GETENV(envName))) {
