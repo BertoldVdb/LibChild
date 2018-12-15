@@ -297,8 +297,6 @@ __attribute__((constructor (101))) void libChildMain()
 {
     char* fdStr;
     if((fdStr = GETENV(envName))) {
-        unsetenv(envName);
-
         int fd = atoi(fdStr);
         libChildSlaveProcess(fd);
         _exit(EXIT_FAILURE);
