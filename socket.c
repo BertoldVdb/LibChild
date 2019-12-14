@@ -42,7 +42,10 @@ int libChildReadFull(int fd, char* buffer, size_t len)
 {
     while(len) {
         ssize_t bytesRead = read(fd, buffer, len);
-        if(bytesRead <= 0) {
+        if(bytesRead == 0){
+            return -1;
+        }
+        if(bytesRead < 0) {
             if(errno == EINTR) {
                 continue;
             }
@@ -59,7 +62,10 @@ int libChildWriteFull(int fd, char* buffer, size_t len)
 {
     while(len) {
         ssize_t bytesWritten = send(fd, buffer, len, SEND_FLAGS);
-        if(bytesWritten <= 0) {
+        if(bytesWritten == 0) {
+            return -1;
+        }
+        if(bytesWritten < 0) {
             if(errno == EINTR) {
                 continue;
             }

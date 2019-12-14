@@ -24,6 +24,8 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <signal.h>
+
 #ifndef SRC_LIBCHILD_H_
 #define SRC_LIBCHILD_H_
 
@@ -41,17 +43,18 @@ enum childStates {
     CHILD_TERMINATED = 2
 };
 
-LIBCHILD_H_EXPORT_FUNCTION LibChild* libChildCreateWorker(char* slaveName, char* userName);
+LIBCHILD_H_EXPORT_FUNCTION LibChild* libChildCreateWorker(char* slaveName, char* userName,
+                                                  void(*signalReceived)(siginfo_t signal));
 LIBCHILD_H_EXPORT_FUNCTION void      libChildKill(Child* child, int signalId);
 LIBCHILD_H_EXPORT_FUNCTION Child*    libChildExec(LibChild* lib, char* program, char* username,
                                                   char** argv, char** env,
                                                   void(*stateChange)(Child* child, void* param, enum childStates state),
-                                                  void(*childData)(Child* child, void* param, char* buffer, size_t len),
+                                                  void(*childData)(Child* child, void* param, char* buffer, size_t len, int isErr),
                                                   void* param);
 LIBCHILD_H_EXPORT_FUNCTION int       libChildExitStatus(Child* child);
 LIBCHILD_H_EXPORT_FUNCTION void      libChildFreeHandle(Child* child);
 LIBCHILD_H_EXPORT_FUNCTION int       libChildPoll(LibChild* lib);
-LIBCHILD_H_EXPORT_FUNCTION int       libChildGetFd();
+LIBCHILD_H_EXPORT_FUNCTION int       libChildGetFd(LibChild* lib);
 LIBCHILD_H_EXPORT_FUNCTION void      libChildMain();
 LIBCHILD_H_EXPORT_FUNCTION void      libChildTerminateWorker(LibChild* lib);
 

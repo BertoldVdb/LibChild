@@ -46,6 +46,10 @@
 #include <sys/eventfd.h>
 #endif
 
+#ifndef NSIG
+#define NSIG (_SIGMAX + 1)
+#endif
+
 struct childProcess {
     struct childProcess* next;
     struct childProcess* prev;
@@ -65,13 +69,8 @@ struct childProcess {
 typedef struct {
     pid_t  intermediatePid;
     pid_t  grpId;
-#ifdef __linux__
-    int    chldFd[1];
-#else
     int    chldFd[2];
-#endif
     int    socket;
-    int    die;
     struct childProcess* firstProcess;
 } SlaveGlobal;
 
@@ -155,18 +154,7 @@ SlaveGlobal lib;
 
 static void signalHandler(int sig, siginfo_t *siginfo, void *context)
 {
-    if(sig == SIGTERM) {
-        lib.die = 1;
-    }
-
-#ifdef __linux__
-    uint64_t value = 1;
-    int retVal = write(lib.chldFd[0], &value, sizeof(value));
-#else
-    uint8_t value = 1;
-    int retVal = write(lib.chldFd[1], &value, sizeof(value));
-#endif
-
+    int retVal = send(lib.chldFd[1], siginfo, sizeof(*siginfo), 0);
     (void)retVal;
 }
 
@@ -200,7 +188,6 @@ void libChildSlaveProcess(int socket)
 
     lib.firstProcess = NULL;
     lib.socket = socket;
-    lib.die = 0;
 
     /* Become a session leader and create new process group */
     lib.grpId = setsid();
@@ -208,24 +195,20 @@ void libChildSlaveProcess(int socket)
         slaveExit(&lib);
     }
 
-    /* Create an eventFD to synchronize the SIGCHLD signal */
-#ifdef __linux__
-    lib.chldFd[0] = eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK);
-    if(lib.chldFd[0] < 0) {
+    /* Create an socket to synchronize the signals */
+    if(socketpair(AF_UNIX, SOCK_DGRAM, 0, lib.chldFd)){
         slaveExit(&lib);
     }
-#else
-    if(pipe(lib.chldFd) < 0) slaveExit(&lib);
     setCloExec(lib.chldFd[0]);
     setCloExec(lib.chldFd[1]);
-#endif
 
     /* We have forked already once so we can safely put signal handlers */
     struct sigaction action;
     action.sa_sigaction = &signalHandler;
     action.sa_flags = SA_SIGINFO;
-    sigaction(SIGTERM, &action, NULL);
-    sigaction(SIGCHLD, &action, NULL);
+    for(unsigned int i=0; i<NSIG; i++){
+        sigaction(i, &action, NULL);
+    }
     signal(SIGPIPE, SIG_IGN);
 
     while(1) {
@@ -272,10 +255,6 @@ void libChildSlaveProcess(int socket)
             slaveExit(&lib);
         }
 
-        if(lib.die) {
-            slaveExit(&lib);
-        }
-
         for(int i=2; i<numPoll; i++) {
             if(fds[i].revents) {
                 if(fds[i].revents & POLLIN) {
@@ -315,24 +294,35 @@ void libChildSlaveProcess(int socket)
         }
 
         if(fds[SIGCHLD_FD].revents & POLLIN) {
-            uint64_t tmp;
-            if(read(lib.chldFd[0], &tmp, sizeof(tmp)) <= 0) {
+            siginfo_t sigInfo;
+            if(recv(lib.chldFd[0], &sigInfo, sizeof(sigInfo), 0) != sizeof(sigInfo)) {
                 slaveExit(&lib);
             }
 
-            int status;
-            pid_t pid;
+            /* Is it SIGCHLD? */
+            if(sigInfo.si_signo == SIGCHLD){
+                int status;
+                pid_t pid;
 
-            /* Wait for children */
-            while((pid = waitpid(-lib.grpId, &status, WNOHANG)) > 0) {
-                FOREACH_CHILD(&lib, it) {
-                    if(it->pid == pid && it->running) {
-                        it->status = status;
-                        it->running = 0;
+                while((pid = waitpid(-lib.grpId, &status, WNOHANG)) > 0) {
+                    FOREACH_CHILD(&lib, it) {
+                        if(it->pid == pid && it->running) {
+                            it->status = status;
+                            it->running = 0;
 
-                        notifyDead(&lib, it);
-                        break;
+                            notifyDead(&lib, it);
+                            break;
+                        }
                     }
+                }
+            }else{
+                struct slaveResponse response;
+                response.result = SLAVE_RESULT_GOT_SIGNAL;
+                if(libChildWriteFull(lib.socket, (char*)&response, sizeof(response))){
+                    slaveExit(&lib);
+                }
+                if(libChildWriteFull(lib.socket, (char*)&sigInfo, sizeof(sigInfo))){
+                    slaveExit(&lib);
                 }
             }
         }

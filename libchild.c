@@ -84,7 +84,7 @@ static void setState(Child* child, enum childStates state)
     }
 }
 
-LibChild* libChildCreateWorker(char* slaveName, char* userName)
+LibChild* libChildCreateWorker(char* slaveName, char* userName, void(*signalReceived)(siginfo_t signal))
 {
     LibChild* lib = (LibChild*)malloc(sizeof(LibChild));
 
@@ -103,6 +103,7 @@ LibChild* libChildCreateWorker(char* slaveName, char* userName)
         }
 #endif
 
+        lib->signalReceived = signalReceived;
         lib->intermediatePid = fork();
         if(!lib->intermediatePid) {
             close(lib->sockets[0]);
@@ -178,7 +179,7 @@ void libChildKill(Child* child, int signalId)
 
 Child* libChildExec(LibChild* lib, char* program, char* username, char** argv, char** env,
                     void(*stateChange)(Child* child, void* param, enum childStates state),
-                    void(*childData)(Child* child, void* param, char* buffer, size_t len),
+                    void(*childData)(Child* child, void* param, char* buffer, size_t len, int isErr),
                     void* param)
 {
     Child* child = (Child*)malloc(sizeof(Child));
@@ -266,9 +267,16 @@ int libChildPoll(LibChild* lib)
         char* buffer = libChildReadVariable(lib->sockets[0], &len);
         if(!buffer) goto fail;
         if(!child->unusedHandle && !lib->unusedHandle && child->childData) {
-            child->childData(child, child->param, buffer, len);
+            child->childData(child, child->param, buffer, len, resp.result == SLAVE_RESULT_CHILD_STDERR_DATA);
         }
         free(buffer);
+    } else if(resp.result == SLAVE_RESULT_GOT_SIGNAL) {
+        siginfo_t sigInfo;
+        if(libChildReadFull(lib->sockets[0], (char*)&sigInfo, sizeof(sigInfo))) goto fail;
+
+        if(lib->signalReceived){
+            lib->signalReceived(sigInfo);
+        }
     }
 
     return 0;

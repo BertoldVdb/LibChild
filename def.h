@@ -50,13 +50,14 @@ struct LibChild {
     int     workerDied;
     int     unusedHandle;
     int     sockets[2];
+    void    (*signalReceived)(siginfo_t signal);
 };
 
 typedef struct LibChild LibChild;
 
 struct Child {
     void(*stateChange)(struct Child* child, void* param, enum childStates state);
-    void(*childData)(struct Child* child, void* param, char* buffer, size_t len);
+    void(*childData)(struct Child* child, void* param, char* buffer, size_t len, int isErr);
     void* param;
     void* slaveId;
     enum childStates state;
@@ -81,7 +82,8 @@ enum slaveResults {
     SLAVE_RESULT_CHILD_CREATED = 1,
     SLAVE_RESULT_CHILD_DIED = 2,
     SLAVE_RESULT_CHILD_STDOUT_DATA = 3,
-    SLAVE_RESULT_CHILD_STDERR_DATA = 4
+    SLAVE_RESULT_CHILD_STDERR_DATA = 4,
+    SLAVE_RESULT_GOT_SIGNAL = 5
 };
 
 void libChildSlaveProcess(int socket);
