@@ -50,7 +50,8 @@ struct LibChild {
     int     workerDied;
     int     unusedHandle;
     int     sockets[2];
-    void    (*signalReceived)(siginfo_t signal);
+    void    (*signalReceived)(siginfo_t signal, void* param);
+    void*   param;
 };
 
 typedef struct LibChild LibChild;
@@ -87,11 +88,11 @@ enum slaveResults {
 };
 
 void libChildSlaveProcess(int socket);
-int libChildReadFull(int fd, char* buffer, size_t len);
-int libChildWriteFull(int fd, char* buffer, size_t len);
-int libChildWriteVariable(int fd, void* buf, unsigned int len);
+int libChildReadFull(int fd, char* buffer, size_t len, int unblock);
+int libChildWriteFull(struct LibChild* lib, int fd, char* buffer, size_t len);
+int libChildWriteVariable(struct LibChild* lib, int fd, void* buf, unsigned int len);
 char* libChildReadVariable(int fd, unsigned int* readLen);
-int libChildWritePack(int fd, char** arg);
+int libChildWritePack(struct LibChild* lib, int fd, char** arg);
 void libChildFreePack(char** arg);
 char** libChildReadPack(int fd);
 

@@ -84,7 +84,46 @@ static void setState(Child* child, enum childStates state)
     }
 }
 
-LibChild* libChildCreateWorker(char* slaveName, char* userName, void(*signalReceived)(siginfo_t signal))
+LibChild* libChildInPlace(void(*signalReceived)(siginfo_t signal, void* param), void* param){
+    LibChild* lib = (LibChild*)malloc(sizeof(LibChild));
+
+    if(lib) {
+        memset(lib, 0, sizeof(*lib));
+        int retVal = socketpair(AF_UNIX, SOCK_STREAM, 0, lib->sockets);
+
+        if(retVal < 0) {
+            goto fail;
+        }
+
+#ifdef __APPLE__
+        {
+            int set = 1;
+            setsockopt(lib->sockets[0], SOL_SOCKET, SO_NOSIGPIPE, (void *)&set, sizeof(set));
+        }
+#endif
+
+        lib->signalReceived = signalReceived;
+        lib->param = param;
+        lib->intermediatePid = fork();
+        if(lib->intermediatePid < 0) {
+            goto fail;
+        }
+        if(lib->intermediatePid > 0) {
+            close(lib->sockets[0]);
+            libChildSlaveProcess(lib->sockets[1]);
+            _exit(EXIT_FAILURE);
+        }
+        close(lib->sockets[1]);
+    }
+
+    return lib;
+
+fail:
+    free(lib);
+    return NULL;
+}
+
+LibChild* libChildCreateWorker(char* slaveName, char* userName, void(*signalReceived)(siginfo_t signal, void* param), void* param)
 {
     LibChild* lib = (LibChild*)malloc(sizeof(LibChild));
 
@@ -104,6 +143,7 @@ LibChild* libChildCreateWorker(char* slaveName, char* userName, void(*signalRece
 #endif
 
         lib->signalReceived = signalReceived;
+        lib->param = param;
         lib->intermediatePid = fork();
         if(!lib->intermediatePid) {
             close(lib->sockets[0]);
@@ -158,7 +198,7 @@ void libChildTerminateWorker(LibChild* lib)
 
     struct slaveCommand cmd;
     cmd.command = SLAVE_COMMAND_QUIT;
-    libChildWriteFull(lib->sockets[0], (char*)&cmd, sizeof(cmd));
+    libChildWriteFull(lib, lib->sockets[0], (char*)&cmd, sizeof(cmd));
 
     /* Read all remaining messages */
     while(!libChildPoll(lib)) {}
@@ -173,8 +213,10 @@ void libChildKill(Child* child, int signalId)
         cmd.command = SLAVE_COMMAND_KILL;
         cmd.paramChildProcess = child->slaveId;
         cmd.paramInteger = signalId;
-        libChildWriteFull(child->lib->sockets[0], (char*)&cmd, sizeof(cmd));
+        libChildWriteFull(child->lib, child->lib->sockets[0], (char*)&cmd, sizeof(cmd));
     }
+
+    libChildPoll(child->lib);
 }
 
 Child* libChildExec(LibChild* lib, char* program, char* username, char** argv, char** env,
@@ -206,13 +248,15 @@ Child* libChildExec(LibChild* lib, char* program, char* username, char** argv, c
         username = "";
     }
 
-    if(libChildWriteFull(lib->sockets[0], (char*)&cmd, sizeof(cmd))) goto fail;
-    if(libChildWriteVariable(lib->sockets[0], program, strlen(program))) goto fail;
-    if(libChildWriteVariable(lib->sockets[0], username, strlen(username))) goto fail;
-    if(libChildWritePack(lib->sockets[0], argv)) goto fail;
-    if(libChildWritePack(lib->sockets[0], env)) goto fail;
+    if(libChildWriteFull(lib, lib->sockets[0], (char*)&cmd, sizeof(cmd))) goto fail;
+    if(libChildWriteVariable(lib, lib->sockets[0], program, strlen(program))) goto fail;
+    if(libChildWriteVariable(lib, lib->sockets[0], username, strlen(username))) goto fail;
+    if(libChildWritePack(lib, lib->sockets[0], argv)) goto fail;
+    if(libChildWritePack(lib, lib->sockets[0], env)) goto fail;
 
     setState(child, CHILD_STARTING);
+    
+    libChildPoll(lib);
     return child;
 
 fail:
@@ -236,46 +280,52 @@ void libChildFreeHandle(Child* child)
 
 int libChildPoll(LibChild* lib)
 {
-    int status;
+    while(1){
+        struct slaveResponse resp;
+        memset(&resp, 0, sizeof(resp));
 
-    struct slaveResponse resp;
-    memset(&resp, 0, sizeof(resp));
-
-    if(libChildReadFull(lib->sockets[0], (char*)&resp, sizeof(resp))) goto fail;
-    Child* child = (Child*)resp.masterEcho;
-    if(resp.result == SLAVE_RESULT_CHILD_CREATED) {
-        child->pid = resp.paramInteger;
-        child->slaveId = resp.paramChildProcess;
-        setState(child, CHILD_STARTED);
-
-    } else if(resp.result == SLAVE_RESULT_CHILD_DIED) {
-        void* slaveId = child->slaveId;
-        child->slaveId = NULL;
-        child->exitStatus = resp.paramInteger;
-
-        setState(child, CHILD_TERMINATED);
-
-        struct slaveCommand cmd;
-        cmd.command = SLAVE_COMMAND_CLOSE_HANDLE;
-        cmd.paramChildProcess = slaveId;
-        if(libChildWriteFull(lib->sockets[0], (char*)&cmd, sizeof(cmd))) goto fail;
-
-    } else if(resp.result == SLAVE_RESULT_CHILD_STDOUT_DATA ||
-              resp.result == SLAVE_RESULT_CHILD_STDERR_DATA) {
-
-        unsigned int len;
-        char* buffer = libChildReadVariable(lib->sockets[0], &len);
-        if(!buffer) goto fail;
-        if(!child->unusedHandle && !lib->unusedHandle && child->childData) {
-            child->childData(child, child->param, buffer, len, resp.result == SLAVE_RESULT_CHILD_STDERR_DATA);
+        int retVal = libChildReadFull(lib->sockets[0], (char*)&resp, sizeof(resp), 1);
+        if(retVal == 1){
+            break;
+        }else if(retVal < 0){
+            goto fail;
         }
-        free(buffer);
-    } else if(resp.result == SLAVE_RESULT_GOT_SIGNAL) {
-        siginfo_t sigInfo;
-        if(libChildReadFull(lib->sockets[0], (char*)&sigInfo, sizeof(sigInfo))) goto fail;
 
-        if(lib->signalReceived){
-            lib->signalReceived(sigInfo);
+        Child* child = (Child*)resp.masterEcho;
+        if(resp.result == SLAVE_RESULT_CHILD_CREATED) {
+            child->pid = resp.paramInteger;
+            child->slaveId = resp.paramChildProcess;
+            setState(child, CHILD_STARTED);
+    
+        } else if(resp.result == SLAVE_RESULT_CHILD_DIED) {
+            void* slaveId = child->slaveId;
+            child->slaveId = NULL;
+            child->exitStatus = resp.paramInteger;
+    
+            setState(child, CHILD_TERMINATED);
+
+            struct slaveCommand cmd;
+            cmd.command = SLAVE_COMMAND_CLOSE_HANDLE;
+            cmd.paramChildProcess = slaveId;
+            if(libChildWriteFull(lib, lib->sockets[0], (char*)&cmd, sizeof(cmd))) goto fail;
+
+        } else if(resp.result == SLAVE_RESULT_CHILD_STDOUT_DATA ||
+                  resp.result == SLAVE_RESULT_CHILD_STDERR_DATA) {
+
+            unsigned int len;
+            char* buffer = libChildReadVariable(lib->sockets[0], &len);
+            if(!buffer) goto fail;
+            if(!child->unusedHandle && !lib->unusedHandle && child->childData) {
+                child->childData(child, child->param, buffer, len, resp.result == SLAVE_RESULT_CHILD_STDERR_DATA);
+            }
+            free(buffer);
+        } else if(resp.result == SLAVE_RESULT_GOT_SIGNAL) {
+            siginfo_t sigInfo;
+            if(libChildReadFull(lib->sockets[0], (char*)&sigInfo, sizeof(sigInfo), 0)) goto fail;
+
+            if(lib->signalReceived){
+                lib->signalReceived(sigInfo, lib->param);
+            }
         }
     }
 
@@ -284,6 +334,7 @@ int libChildPoll(LibChild* lib)
 fail:
     /* Could not read, so the worker process died */
     if(!lib->workerDied) {
+        int status;
         waitpid(lib->intermediatePid, &status, 0);
         lib->workerDied = 1;
     }

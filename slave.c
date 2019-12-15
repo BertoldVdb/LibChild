@@ -96,7 +96,7 @@ static void slaveExit(SlaveGlobal* lib)
             response.paramInteger = it->status;
             response.masterEcho = it->echo;
 
-            libChildWriteFull(lib->socket, (char*)&response, sizeof(response));
+            libChildWriteFull(NULL, lib->socket, (char*)&response, sizeof(response));
         }
         struct childProcess* next = it->next;
         free(it);
@@ -143,7 +143,7 @@ static void notifyDead(SlaveGlobal* lib, struct childProcess* it)
     response.masterEcho = it->echo;
     response.paramInteger = it->status;
 
-    if(libChildWriteFull(lib->socket, (char*)&response, sizeof(response))) {
+    if(libChildWriteFull(NULL, lib->socket, (char*)&response, sizeof(response))) {
         slaveExit(lib);
     }
 }
@@ -190,9 +190,13 @@ void libChildSlaveProcess(int socket)
     lib.socket = socket;
 
     /* Become a session leader and create new process group */
-    lib.grpId = setsid();
-    if(lib.grpId < 0) {
-        slaveExit(&lib);
+    if(getpid() != 1){
+        lib.grpId = setsid();
+        if(lib.grpId < 0) {
+            slaveExit(&lib);
+        }
+    }else{
+        lib.grpId = 1;
     }
 
     /* Create an socket to synchronize the signals */
@@ -272,11 +276,11 @@ void libChildSlaveProcess(int socket)
 
                                 response.masterEcho = it->echo;
 
-                                if(libChildWriteFull(fds[CMD_FD].fd, (char*)&response, sizeof(response))) {
+                                if(libChildWriteFull(NULL, fds[CMD_FD].fd, (char*)&response, sizeof(response))) {
                                     slaveExit(&lib);
                                 }
 
-                                if(libChildWriteVariable(fds[CMD_FD].fd, buffer, readLen)) {
+                                if(libChildWriteVariable(NULL, fds[CMD_FD].fd, buffer, readLen)) {
                                     slaveExit(&lib);
                                 }
 
@@ -318,10 +322,10 @@ void libChildSlaveProcess(int socket)
             }else{
                 struct slaveResponse response;
                 response.result = SLAVE_RESULT_GOT_SIGNAL;
-                if(libChildWriteFull(lib.socket, (char*)&response, sizeof(response))){
+                if(libChildWriteFull(NULL, lib.socket, (char*)&response, sizeof(response))){
                     slaveExit(&lib);
                 }
-                if(libChildWriteFull(lib.socket, (char*)&sigInfo, sizeof(sigInfo))){
+                if(libChildWriteFull(NULL, lib.socket, (char*)&sigInfo, sizeof(sigInfo))){
                     slaveExit(&lib);
                 }
             }
@@ -329,7 +333,7 @@ void libChildSlaveProcess(int socket)
 
         if(fds[CMD_FD].revents & POLLIN) {
             struct slaveCommand cmd;
-            if(libChildReadFull(fds[CMD_FD].fd, (char*)&cmd, sizeof(cmd))) {
+            if(libChildReadFull(fds[CMD_FD].fd, (char*)&cmd, sizeof(cmd), 0)) {
                 slaveExit(&lib);
             }
 
@@ -436,7 +440,7 @@ void libChildSlaveProcess(int socket)
                     close(pipe_stderr[1]);
                 }
 
-                if(libChildWriteFull(fds[CMD_FD].fd, (char*)&response, sizeof(response))) {
+                if(libChildWriteFull(NULL, fds[CMD_FD].fd, (char*)&response, sizeof(response))) {
                     slaveExit(&lib);
                 }
 

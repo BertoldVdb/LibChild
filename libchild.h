@@ -44,7 +44,8 @@ enum childStates {
 };
 
 LIBCHILD_H_EXPORT_FUNCTION LibChild* libChildCreateWorker(char* slaveName, char* userName,
-                                                  void(*signalReceived)(siginfo_t signal));
+                                                     void(*signalReceived)(siginfo_t signal, void* param), void* param);
+LIBCHILD_H_EXPORT_FUNCTION LibChild* libChildInPlace(void(*signalReceived)(siginfo_t signal, void* param), void* param);
 LIBCHILD_H_EXPORT_FUNCTION void      libChildKill(Child* child, int signalId);
 LIBCHILD_H_EXPORT_FUNCTION Child*    libChildExec(LibChild* lib, char* program, char* username,
                                                   char** argv, char** env,

@@ -29,29 +29,24 @@ CC=$(CCARCH)gcc
 AR=$(CCARCH)ar
 STRIP=$(CCARCH)strip
 
-CFLAGS=-fPIC -O3 -Wall -c -fmessage-length=0 -Werror -ffunction-sections -fdata-sections -fvisibility=hidden
-LDFLAGS=-shared -fvisibility=hidden
+CFLAGS=-static -O3 -Wall -c -fmessage-length=0 -Werror -ffunction-sections -fdata-sections -I..
+LDFLAGS=-L.. -l:libchild.a
 
-EXECUTABLE=libchild.so
-EXECUTABLE_STATIC=libchild.a
-INCLUDES_SRC=def.h libchild.h
-SOURCES_SRC=libchild.c slave.c socket.c priv.c
+EXECUTABLE=docker-init
+INCLUDES_SRC=init.h
+SOURCES_SRC=init.c
 
 
 OBJECTS_OBJ=$(SOURCES_SRC:.c=.o)
 
-all: $(EXECUTABLE) $(EXECUTABLE_STATIC)
+all: $(EXECUTABLE)
 
 $(EXECUTABLE): $(OBJECTS_OBJ)
-	$(CC) $(LDFLAGS) $(OBJECTS_OBJ) -o $@
+	$(CC) $(OBJECTS_OBJ) $(LDFLAGS) -o $@
 	$(STRIP) -x $@
-
-$(EXECUTABLE_STATIC): $(OBJECTS_OBJ)
-	$(AR) rcs $(EXECUTABLE_STATIC) $(OBJECTS_OBJ)
-	
 
 obj/%.o: src/%.c $(INCLUDES_SRC)
 	$(CC) $(CFLAGS) $< -o $@
 
 clean:
-	rm -rf $(OBJECTS_OBJ) $(EXECUTABLE) $(EXECUTABLE_STATIC)
+	rm -rf $(OBJECTS_OBJ) $(EXECUTABLE)
